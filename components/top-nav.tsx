@@ -1,15 +1,50 @@
 "use client"
-
 import Link from "next/link"
-import { Menu, Github, LogIn } from "lucide-react"
+import { Menu, Github } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { useState } from "react"
-import { HackerLoginDialog, OrganizerLoginDialog } from "@/components/login-dialogs"
+
+declare global {
+  interface Window {
+    ethereum?: any
+  }
+}
 
 export default function TopNav({ showAuth = true }: { showAuth?: boolean }) {
-  const [hackerOpen, setHackerOpen] = useState(false)
-  const [orgOpen, setOrgOpen] = useState(false)
+  const [account, setAccount] = useState<string | null>(null)
+
+  async function connectWallet(role: "hacker" | "organizer") {
+    try {
+      if (!window.ethereum) {
+        alert("Core wallet / MetaMask not found. Please install it.")
+        return
+      }
+
+      // Request account access
+      const accounts: string[] = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      })
+
+      const selectedAccount = accounts[0]
+      setAccount(selectedAccount)
+
+      console.log(`Connected as ${selectedAccount} for role: ${role}`)
+      // You can now send this account & role to your backend for authentication
+      
+      const message = `Login as ${role} at ${new Date().toISOString()}`
+      const signature = await window.ethereum.request({
+        method: "personal_sign",
+        params: [message, selectedAccount],
+      })
+
+      console.log("Signature:", signature)
+      alert(`Wallet connected: ${selectedAccount}\nSignature: ${signature}`)
+    } catch (err) {
+      console.error("Wallet connection error:", err)
+      alert("Failed to connect wallet.")
+    }
+  }
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-white/80 backdrop-blur-md dark:bg-neutral-950/70">
@@ -46,13 +81,15 @@ export default function TopNav({ showAuth = true }: { showAuth?: boolean }) {
           </a>
           {showAuth && (
             <div className="flex items-center gap-2">
-              <Button onClick={() => setHackerOpen(true)} className="bg-red-600 text-white hover:bg-red-500">
+              <Button
+                className="bg-red-600 text-white hover:bg-red-500"
+                onClick={() => connectWallet("hacker")}
+              >
                 For Hackers
               </Button>
               <Button
-                onClick={() => setOrgOpen(true)}
-                variant="outline"
-                className="border-red-200 text-red-700 hover:bg-red-50"
+                className="bg-red-600 text-white hover:bg-red-500"
+                onClick={() => connectWallet("organizer")}
               >
                 For Organizers
               </Button>
@@ -86,15 +123,17 @@ export default function TopNav({ showAuth = true }: { showAuth?: boolean }) {
                 </Link>
                 {showAuth && (
                   <>
-                    <Button onClick={() => setHackerOpen(true)} className="bg-red-600 text-white hover:bg-red-500">
-                      <LogIn className="mr-2 size-4" /> For Hackers
+                    <Button
+                      className="bg-red-600 text-white hover:bg-red-500"
+                      onClick={() => connectWallet("hacker")}
+                    >
+                      For Hackers
                     </Button>
                     <Button
-                      onClick={() => setOrgOpen(true)}
-                      variant="outline"
-                      className="border-red-200 text-red-700 hover:bg-red-50"
+                      className="bg-red-600 text-white hover:bg-red-500"
+                      onClick={() => connectWallet("organizer")}
                     >
-                      <LogIn className="mr-2 size-4" /> For Organizers
+                      For Organizers
                     </Button>
                   </>
                 )}
@@ -103,10 +142,6 @@ export default function TopNav({ showAuth = true }: { showAuth?: boolean }) {
           </Sheet>
         </div>
       </div>
-
-      {/* Auth dialogs */}
-      <HackerLoginDialog open={hackerOpen} onOpenChange={setHackerOpen} />
-      <OrganizerLoginDialog open={orgOpen} onOpenChange={setOrgOpen} />
     </header>
   )
 }
